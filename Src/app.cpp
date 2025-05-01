@@ -11,7 +11,7 @@ extern "C"
         while (1)
         {
             // Infinite loop
-            Serial_printf("Application working ...%d\n", test_digit++);
+            Serial_printf("Application is working ...%d\n", test_digit++);
 
             HAL_Delay(1000); // Delay for 1 second
         }
