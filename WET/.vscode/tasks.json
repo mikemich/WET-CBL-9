@@ -1,0 +1,10 @@
+{
+    "tasks": [
+          {
+             "label": "Flash",
+             "type": "shell",
+             "command": "./scripts/openocd/flash.sh",
+             "problemMatcher": []
+          }
+       ]
+ }

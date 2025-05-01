@@ -1,0 +1,13 @@
+{
+    "statusbar_command.commands": [
+          {
+                "text": "$(symbol-event)Flash",
+                "id": "runTask",
+                "name": "runTask",
+                "command": "workbench.action.tasks.runTask",
+                "arguments": [
+                   "Flash"
+                ]
+          }
+       ]
+ }      

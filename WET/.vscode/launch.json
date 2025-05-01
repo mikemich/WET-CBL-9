@@ -1,0 +1,34 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Cortex Debug (OpenOCD)",
+            "cwd": "${workspaceFolder}",
+            "executable": "./build/Debug/WET.elf", // Update this path to your actual ELF file
+            "request": "launch",
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "device": "STM32F303", // Update this to your specific device
+            "runToEntryPoint": "main",
+            "postRestartCommands": [
+                "monitor reset halt",
+                "monitor reset init"
+            ],
+            "configFiles": [
+                "interface/stlink.cfg",
+                "target/stm32f3x.cfg"
+            ],
+            "svdFile": "${workspaceFolder}/STM32F303.svd", // Optional: Path to the SVD file for peripheral registers
+            "serverpath": "openocd", // Path to the OpenOCD executable
+            "searchDir": [
+                "/usr/share/openocd/scripts", // Update this path to the OpenOCD scripts directory
+                "${workspaceFolder}/openocd/scripts" // Optional: Additional search directories for OpenOCD scripts
+            ],
+            "gdbPath": "arm-none-eabi-gdb", // Path to the GDB executable
+            "gdbTarget": "localhost:50003"
+        }
+    ]
+}
