@@ -1,0 +1,120 @@
+#include "main.h"
+#include "gpio.h"
+#include "tim.h"
+#include "adc.h"
+#include "usart.h"
+#include <string.h>
+#include <stdio.h>
+
+uint32_t pwm_freq_hz = 50000; // 85 kHz
+uint32_t duty_cycle_percent = 50; // Default 50%
+uint32_t voltage_raw = 0;
+uint32_t current_raw = 0;
+uint32_t Deadtimevar = 2;
+float voltage_adc = 0.0f;
+float voltage_input = 0.0f;
+float current_adc = 0.0f;
+float current_value = 0.0f;
+
+void SystemClock_Config(void);
+void Configure_PWM(uint32_t freq_hz, uint32_t duty_percent);
+uint8_t buffer1[] = "works";
+
+int main(void)
+{
+  HAL_Init();
+  SystemClock_Config();
+  MX_GPIO_Init();
+  MX_TIM1_Init();
+  MX_ADC1_Init();
+  MX_ADC2_Init();
+  MX_USART2_UART_Init();
+  Configure_PWM(pwm_freq_hz, duty_cycle_percent);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2); // for complementary PA12
+  __HAL_TIM_MOE_ENABLE(&htim1); // Required for complementary outputs
+
+  HAL_ADC_Start(&hadc1); // Start ADC1 for voltage
+  HAL_ADC_Start(&hadc2); // Start ADC2 for current
+
+  while (1)
+  {
+	  HAL_ADC_PollForConversion(&hadc2, 1000);
+	      uint32_t val = HAL_ADC_GetValue(&hadc2);
+
+	      char msg1[64];
+	      snprintf(msg1, sizeof(msg1), "ADC2 PB1: %lu\r\n", val);
+	      HAL_UART_Transmit(&huart2, (uint8_t*)msg1, strlen(msg1), 100);
+    // Read voltage from PB0 (ADC1)
+    HAL_ADC_PollForConversion(&hadc1, 1000);
+    voltage_raw = HAL_ADC_GetValue(&hadc1);
+    voltage_adc = (voltage_raw / 4095.0f) * 3.3f;
+    voltage_input = voltage_adc * (100.0f + 6.8f) / 6.8f; // R1=100k, R2=6.8k
+
+    // Read current from PB1 (ADC2_IN12)
+    HAL_ADC_PollForConversion(&hadc2, 1000);
+    current_raw = HAL_ADC_GetValue(&hadc2);
+    current_adc = (current_raw / 4095.0f) * 3.3f;
+    current_value = (current_adc) / 0.066f; // Adjust based on LEM model
+
+    // Transmit voltage
+    char msg[64];
+
+    snprintf(msg, sizeof(msg), "Voltage: %.2f V\r\n", voltage_input);
+    HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 1000);
+    // Transmit current
+    snprintf(msg, sizeof(msg), "Current: %.2f A\r\n", current_value);
+    HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), 1000);
+
+    HAL_Delay(500);
+  }
+
+
+}
+
+void Configure_PWM(uint32_t freq_hz, uint32_t duty_percent)
+{
+  uint32_t timer_clk = HAL_RCC_GetPCLK2Freq(); // TIM1 on APB2
+  uint32_t prescaler = 0;
+  uint32_t period = (timer_clk / freq_hz) - 1;
+  uint32_t pulse = (period + 1) * duty_percent / 100;
+
+  htim1.Init.Prescaler = prescaler;
+  htim1.Init.Period = period;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  HAL_TIM_PWM_Init(&htim1);
+
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = pulse;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2);
+
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = Deadtimevar;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_ENABLE;
+  HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig);
+
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+  HAL_TIMEx_PWMN_Start(&htim1, TIM_CHANNEL_2); // Complementary
+}
+
+void Error_Handler(void) {
+  __disable_irq();
+  while (1) {}
+}
+
+void SystemClock_Config(void) {
+  // Dummy stub if you’re replacing clock config elsewhere
+}
